@@ -56,8 +56,24 @@
 >
 > [Affected Component]
 > tinydtls, dtls.c , dtls_handle_message()->case DTLS_CT_CHANGE_CIPHER_SPEC:,  handle_ccs(),
-> if (!peer || peer->state != DTLS_STATE_WAIT_CHANGECIPHERSPEC)  // peer->state is null
->
+
+>case DTLS_CT_CHANGE_CIPHER_SPEC:
+>      if (peer) {
+>        dtls_stop_retransmission(ctx, peer);
+>      }
+>      err = handle_ccs(ctx, peer, msg, data, data_length);
+
+handle_css is run with out "peer" check.
+
+>static int
+>handle_ccs(dtls_context_t *ctx, dtls_peer_t *peer, 
+>	   uint8 *record_header, uint8 *data, size_t data_length)
+>{
+>  int err;
+>  dtls_handshake_parameters_t *handshake = peer->handshake_params;
+>  
+
+peer->handshake_params has null point deference.
 > ------------------------------------------
 >
 > [Attack Type]
